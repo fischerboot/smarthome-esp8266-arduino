@@ -17,15 +17,19 @@ can not be read by observers.
 #include <DNSServer.h>
 #include <WiFiManager.h>          //https://github.com/kentaylor/WiFiManager
 #include <ArduinoOTA.h>
+#include <SevSeg.h>               // https://github.com/DeanIsMe/SevSeg.git
+
 // Onboard LED I/O pin on NodeMCU board
 const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
 
-//Pin connected to ST_CP of 74HC595
-int latchPin = 8;
-//Pin connected to SH_CP of 74HC595
-int clockPin = 12;
-////Pin connected to DS of 74HC595
-int dataPin = 11;
+//Pin connected to RCLK of 74HC595
+int latchPin = 12;
+//Pin connected to SRCLK of 74HC595
+int clockPin = 13;
+////Pin connected to SER of 74HC595
+int dataPin = 15;
+
+SevSeg sevseg; //Instantiate a seven segment controller object
 
 void setup() {
   // put your setup code here, to run once:
@@ -116,7 +120,19 @@ void setup() {
   });
   ArduinoOTA.begin();
 
-   pinMode(latchPin, OUTPUT);
+  pinMode(latchPin, OUTPUT);
+  //SevenSeg Settings 
+  byte numDigits = 4;
+  byte digitPins[] = {2, 3, 4, 5}; // TBD 
+  byte segmentPins[] = {6, 7, 8, 9, 10, 11, 12, 13}; // TBD
+  bool resistorsOnSegments = false; // 'false' means resistors are on digit pins
+  byte hardwareConfig = COMMON_ANODE; // See README.md for options
+  bool updateWithDelays = false; // Default 'false' is Recommended
+  bool leadingZeros = false; // Use 'true' if you'd like to keep the leading zeros
+  bool disableDecPoint = false; // Use 'true' if your decimal point doesn't exist or isn't connected
+  
+  sevseg.begin(hardwareConfig, numDigits, digitPins, segmentPins, resistorsOnSegments,
+  updateWithDelays, leadingZeros, disableDecPoint);
 }
 
 
@@ -145,6 +161,7 @@ void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
   //prepare shift register for bit shifting
   digitalWrite(myDataPin, 0);
   digitalWrite(myClockPin, 0);
+  digitalWrite(latchPin, 0); // TBV
 
   //for each bit in the byte myDataOut�
   //NOTICE THAT WE ARE COUNTING DOWN in our for loop
@@ -174,4 +191,5 @@ void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
 
   //stop shifting
   digitalWrite(myClockPin, 0);
+  digitalWrite(latchPin, 1);
 }
