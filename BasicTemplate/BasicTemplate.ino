@@ -114,6 +114,7 @@ void setup() {
   ArduinoOTA.begin();
 
   pinMode(12, OUTPUT); //latch
+   
   //SevenSeg Settings 
   byte numDigits = 4;
   byte digitPins[] = {16, 4, 5, 14}; // TBD D0, D2, D1,D5
@@ -142,10 +143,11 @@ void loop() {
     if (deciSeconds == 10000) { // Reset to 0 after counting for 1000 seconds.
       deciSeconds=0;
     }
-    sevseg.setNumber(deciSeconds, 1);
+    //sevseg.setNumber(deciSeconds, 1);
+    digitalWrite(2,deciSeconds%2);
   }
 
-  sevseg.refreshDisplay(); // Must run repeatedly
+  //sevseg.refreshDisplay(); // Must run repeatedly
  
   
 }
