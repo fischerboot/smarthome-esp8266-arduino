@@ -143,11 +143,11 @@ void loop() {
     if (deciSeconds == 10000) { // Reset to 0 after counting for 1000 seconds.
       deciSeconds=0;
     }
-    //sevseg.setNumber(deciSeconds, 1);
+    sevseg.setNumber(deciSeconds, 1);
     digitalWrite(2,deciSeconds%2);
   }
 
-  //sevseg.refreshDisplay(); // Must run repeatedly
+  sevseg.refreshDisplay(); // Must run repeatedly
  
   
 }
