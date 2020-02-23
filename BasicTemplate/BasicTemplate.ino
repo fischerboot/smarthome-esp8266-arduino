@@ -17,17 +17,25 @@ can not be read by observers.
 #include <DNSServer.h>
 #include <WiFiManager.h>          //https://github.com/kentaylor/WiFiManager
 #include <ArduinoOTA.h>
-#include <SevSeg.h>               // https://github.com/DeanIsMe/SevSeg.git
+//#include <SevSeg.h>               // https://github.com/DeanIsMe/SevSeg.git
 
 // Onboard LED I/O pin on NodeMCU board
 const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
-
-SevSeg sevseg; //Instantiate a seven segment controller object
+//Pin connected to RCLK of 74HC595
+const int latchPin = 12; //D6
+//Pin connected to SRCLK of 74HC595
+const int clockPin = 13; //D7
+////Pin connected to SER of 74HC595
+const int dataPin = 15; // D8
+//SevSeg sevseg; //Instantiate a seven segment controller object
 
 void setup() {
   // put your setup code here, to run once:
   // initialize the LED digital pin as an output.
   pinMode(PIN_LED, OUTPUT);
+  pinMode(latchPin, OUTPUT); //latch
+  pinMode(clockPin, OUTPUT);
+  pinMode(dataPin, OUTPUT);
   Serial.begin(115200);
   Serial.println("\n Starting");
   unsigned long startedAt = millis();
@@ -113,8 +121,8 @@ void setup() {
   });
   ArduinoOTA.begin();
 
-  pinMode(12, OUTPUT); //latch
-   
+  
+  /*
   //SevenSeg Settings 
   byte numDigits = 4;
   byte digitPins[] = {16, 4, 5, 14}; // TBD D0, D2, D1,D5
@@ -127,27 +135,91 @@ void setup() {
   
   sevseg.begin(hardwareConfig, numDigits, digitPins, segmentPins, resistorsOnSegments,
   updateWithDelays, leadingZeros, disableDecPoint);
+  */
 }
 
 
 void loop() {
   ArduinoOTA.handle();
 
+  // count from 0 to 255 and display the number 
+  // on the LEDs
+ /* for (int numberToDisplay = 0; numberToDisplay < 256; numberToDisplay++) {
+    // take the latchPin low so 
+    // the LEDs don't change while you're sending in bits:
+    digitalWrite(latchPin, LOW);
+    // shift out the bits:
+    shiftOut(numberToDisplay);  
+
+    //take the latch pin high so the LEDs will light up:
+    digitalWrite(latchPin, HIGH);
+    // pause before next value:
+    delay(500);
+  }*/
   static unsigned long timer = millis();
   static int deciSeconds = 0;
+  byte rest=0;
   
   if (millis() - timer >= 1000) {
     timer += 1000;
+    rest++;
     deciSeconds++; // 100 milliSeconds is equal to 1 deciSecond
     
     if (deciSeconds == 10000) { // Reset to 0 after counting for 1000 seconds.
       deciSeconds=0;
     }
-    sevseg.setNumber(deciSeconds, 1);
+    //sevseg.setNumber(deciSeconds, 1);
     digitalWrite(2,deciSeconds%2);
+    shiftOut(rest);
   }
 
-  sevseg.refreshDisplay(); // Must run repeatedly
+  //sevseg.refreshDisplay(); // Must run repeatedly
  
   
+}
+
+void shiftOut(byte myDataOut) {
+  // This shifts 8 bits out MSB first, 
+  //on the rising edge of the clock,
+  //clock idles low
+
+  //internal function setup
+  int i=0;
+  int pinState;
+
+  //clear everything out just in case to
+  //prepare shift register for bit shifting
+  digitalWrite(dataPin, 0);
+  digitalWrite(clockPin, 0);
+ // digitalWrite(latchPin, 0); // TBV
+
+  //for each bit in the byte myDataOut�
+  //NOTICE THAT WE ARE COUNTING DOWN in our for loop
+  //This means that %00000001 or "1" will go through such
+  //that it will be pin Q0 that lights. 
+  for (i=7; i>=0; i--)  {
+    digitalWrite(clockPin, 0);
+
+    //if the value passed to myDataOut and a bitmask result 
+    // true then... so if we are at i=6 and our value is
+    // %11010100 it would the code compares it to %01000000 
+    // and proceeds to set pinState to 1.
+    if ( myDataOut & (1<<i) ) {
+      pinState= 1;
+    }
+    else {  
+      pinState= 0;
+    }
+
+    //Sets the pin to HIGH or LOW depending on pinState
+    digitalWrite(dataPin, pinState);
+    //register shifts bits on upstroke of clock pin  
+    digitalWrite(clockPin, 1);
+    //zero the data pin after shift to prevent bleed through
+    digitalWrite(dataPin, 0);
+  }
+
+  //stop shifting
+  digitalWrite(clockPin, 0);
+  //digitalWrite(latchPin, 1);
 }
