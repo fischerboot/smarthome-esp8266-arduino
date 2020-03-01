@@ -33,9 +33,6 @@ void setup() {
   // put your setup code here, to run once:
   // initialize the LED digital pin as an output.
   pinMode(PIN_LED, OUTPUT);
-  pinMode(latchPin, OUTPUT); //latch
-  pinMode(clockPin, OUTPUT);
-  pinMode(dataPin, OUTPUT);
   Serial.begin(115200);
   Serial.println("\n Starting");
   unsigned long startedAt = millis();
@@ -136,6 +133,7 @@ void setup() {
   sevseg.begin(hardwareConfig, numDigits, digitPins, segmentPins, resistorsOnSegments,
   updateWithDelays, leadingZeros, disableDecPoint);
   */
+  pinMode(latchPin, OUTPUT); //latch
 }
 
 
@@ -144,7 +142,7 @@ void loop() {
 
   // count from 0 to 255 and display the number 
   // on the LEDs
- /* for (int numberToDisplay = 0; numberToDisplay < 256; numberToDisplay++) {
+  for (int numberToDisplay = 0; numberToDisplay < 256; numberToDisplay++) {
     // take the latchPin low so 
     // the LEDs don't change while you're sending in bits:
     digitalWrite(latchPin, LOW);
@@ -154,15 +152,19 @@ void loop() {
     //take the latch pin high so the LEDs will light up:
     digitalWrite(latchPin, HIGH);
     // pause before next value:
+    Serial.printf("Value: %u",numberToDisplay);
+    Serial.println("\n");
     delay(500);
-  }*/
+    
+  }
+  /*
   static unsigned long timer = millis();
   static int deciSeconds = 0;
-  byte rest=0;
+  static byte rest=0;
   
   if (millis() - timer >= 1000) {
     timer += 1000;
-    rest++;
+    rest+=1;
     deciSeconds++; // 100 milliSeconds is equal to 1 deciSecond
     
     if (deciSeconds == 10000) { // Reset to 0 after counting for 1000 seconds.
@@ -170,9 +172,15 @@ void loop() {
     }
     //sevseg.setNumber(deciSeconds, 1);
     digitalWrite(2,deciSeconds%2);
+    digitalWrite(latchPin, LOW);
     shiftOut(rest);
+    Serial.printf("Value: %u",rest);
+    Serial.println("\n");
+    digitalWrite(latchPin, HIGH);
+    delay(100);
+    digitalWrite(latchPin, LOW);
   }
-
+*/
   //sevseg.refreshDisplay(); // Must run repeatedly
  
   
@@ -182,7 +190,9 @@ void shiftOut(byte myDataOut) {
   // This shifts 8 bits out MSB first, 
   //on the rising edge of the clock,
   //clock idles low
-
+  pinMode(clockPin, OUTPUT);
+  pinMode(dataPin, OUTPUT);
+  
   //internal function setup
   int i=0;
   int pinState;
