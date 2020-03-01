@@ -31,13 +31,13 @@ const int GPIO_D6 = 12; // D6 on NodeMCU
 const int GPIO_D7 = 13; // D7 on NodeMCU
 
 // Senor Defines
-TwoWire MyWire;
-Adafruit_BMP280 bmp(&MyWire); // I2C
+Adafruit_BMP280 bmp; // I2C
 
 void setup() {
   // put your setup code here, to run once:
   // initialize the LED digital pin as an output.
   pinMode(PIN_LED, OUTPUT);
+  pinMode(GPIO_D5, OUTPUT);
   Serial.begin(115200);
   Serial.println("\n Starting");
   unsigned long startedAt = millis();
@@ -123,8 +123,6 @@ void setup() {
   });
   ArduinoOTA.begin();
   
-  MyWire.begin(GPIO_D5,GPIO_D6);
-  
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while(1);
@@ -142,9 +140,9 @@ void setup() {
 void loop() {
   ArduinoOTA.handle();
   delay(1000);
-  digitalWrite(GPIO_D2, HIGH);
+  digitalWrite(GPIO_D5, HIGH);
   delay(1000);
-  digitalWrite(GPIO_D2, LOW);
+  digitalWrite(GPIO_D5, LOW);
   Serial.print("Temperature = ");
   Serial.print(bmp.readTemperature());
   Serial.println(" *C");
