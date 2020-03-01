@@ -17,8 +17,22 @@ can not be read by observers.
 #include <DNSServer.h>
 #include <WiFiManager.h>          //https://github.com/kentaylor/WiFiManager
 #include <ArduinoOTA.h>
+
+//BMP Sensor Libs
+#include <Wire.h>
+#include <Adafruit_BMP280.h>     //https://github.com/adafruit/Adafruit_BMP280_Library.git
+
+
 // Onboard LED I/O pin on NodeMCU board
-const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
+const int PIN_LED = 2;  // D4 on NodeMCU Controls the onboard LED.
+const int GPIO_D2 = 4;  // D2 on NodeMCU
+int GPIO_D5 = 14; // D5 on NodeMCU
+int GPIO_D6 = 12; // D6 on NodeMCU
+const int GPIO_D7 = 13; // D7 on NodeMCU
+
+// Senor Defines
+//TwoWire MyWire(GPIO_D5,GPIO_D6);
+Adafruit_BMP280 bmp; // I2C
 
 void setup() {
   // put your setup code here, to run once:
@@ -108,15 +122,37 @@ void setup() {
     }
   });
   ArduinoOTA.begin();
+
+  if (!bmp.begin()) {
+    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    while(1);
+  }
+
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
 }
 
 
 void loop() {
   ArduinoOTA.handle();
   delay(1000);
-  digitalWrite(PIN_LED, HIGH);
+  digitalWrite(GPIO_D2, HIGH);
   delay(1000);
-  digitalWrite(PIN_LED, LOW);
- 
+  digitalWrite(GPIO_D2, LOW);
+  Serial.print("Temperature = ");
+  Serial.print(bmp.readTemperature());
+  Serial.println(" *C");
+
+  Serial.print("Pressure = ");
+  Serial.print(bmp.readPressure());
+  Serial.println(" Pa");
+
+  Serial.print("Approx altitude = ");
+  Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
+  Serial.println(" m"); 
   
 }
