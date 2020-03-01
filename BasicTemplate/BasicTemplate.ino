@@ -26,13 +26,13 @@ can not be read by observers.
 // Onboard LED I/O pin on NodeMCU board
 const int PIN_LED = 2;  // D4 on NodeMCU Controls the onboard LED.
 const int GPIO_D2 = 4;  // D2 on NodeMCU
-int GPIO_D5 = 14; // D5 on NodeMCU
-int GPIO_D6 = 12; // D6 on NodeMCU
+const int GPIO_D5 = 14; // D5 on NodeMCU
+const int GPIO_D6 = 12; // D6 on NodeMCU
 const int GPIO_D7 = 13; // D7 on NodeMCU
 
 // Senor Defines
-//TwoWire MyWire(GPIO_D5,GPIO_D6);
-Adafruit_BMP280 bmp; // I2C
+TwoWire MyWire;
+Adafruit_BMP280 bmp(&MyWire); // I2C
 
 void setup() {
   // put your setup code here, to run once:
@@ -122,7 +122,9 @@ void setup() {
     }
   });
   ArduinoOTA.begin();
-
+  
+  MyWire.begin(GPIO_D5,GPIO_D6);
+  
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while(1);
