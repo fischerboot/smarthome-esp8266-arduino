@@ -22,6 +22,8 @@ can not be read by observers.
 #include <Wire.h>
 #include <Adafruit_BMP280.h>     //https://github.com/adafruit/Adafruit_BMP280_Library.git
 
+// MQTT Client
+#include <PubSubClient.h>
 
 // Onboard LED I/O pin on NodeMCU board
 const int PIN_LED = 2;  // D4 on NodeMCU Controls the onboard LED.
@@ -32,6 +34,59 @@ const int GPIO_D7 = 13; // D7 on NodeMCU
 
 // Senor Defines
 Adafruit_BMP280 bmp; // I2C
+
+// MQTT Defines 
+WiFiClient espClient;
+PubSubClient client(espClient);
+unsigned long lastMsg = 0;
+#define MSG_BUFFER_SIZE  (50)
+char msg[MSG_BUFFER_SIZE];
+float value = 0;
+const char* mqtt_server = "192.168.2.104";
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+
+  // Switch on the LED if an 1 was received as first character
+  if ((char)payload[0] == '1') {
+    digitalWrite(GPIO_D5, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    // but actually the LED is on; this is because
+    // it is active low on the ESP-01)
+  } else {
+    digitalWrite(GPIO_D5, HIGH);  // Turn the LED off by making the voltage HIGH
+  }
+
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("outTopic", "hello world");
+      // ... and resubscribe
+      client.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
 
 void setup() {
   // put your setup code here, to run once:
@@ -134,25 +189,44 @@ void setup() {
                   Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
                   Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 }
 
 
 void loop() {
   ArduinoOTA.handle();
-  delay(1000);
+  /*delay(1000);
   digitalWrite(GPIO_D5, HIGH);
   delay(1000);
-  digitalWrite(GPIO_D5, LOW);
-  Serial.print("Temperature = ");
-  Serial.print(bmp.readTemperature());
-  Serial.println(" *C");
+  digitalWrite(GPIO_D5, LOW);*/
 
-  Serial.print("Pressure = ");
-  Serial.print(bmp.readPressure());
-  Serial.println(" Pa");
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  unsigned long now = millis();
+  if (now - lastMsg > 2000) {
+    lastMsg = now;
+    value =bmp.readTemperature();
+    snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", value);
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    client.publish("outTopic", msg);
+    Serial.print("Temperature = ");
+    
+    Serial.print(value);
+    Serial.println(" *C");
 
-  Serial.print("Approx altitude = ");
-  Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-  Serial.println(" m"); 
+    Serial.print("Pressure = ");
+    Serial.print(bmp.readPressure());
+    Serial.println(" Pa");
+
+    Serial.print("Approx altitude = ");
+    Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
+    Serial.println(" m"); 
+  }
+
   
 }
