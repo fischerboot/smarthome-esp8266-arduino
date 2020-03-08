@@ -18,12 +18,17 @@ can not be read by observers.
 #include <WiFiManager.h>          //https://github.com/kentaylor/WiFiManager
 #include <ArduinoOTA.h>
 // Onboard LED I/O pin on NodeMCU board
-const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
+const int PIN_LED = 2;  // D4 on NodeMCU Controls the onboard LED.
+const int GPIO_D2 = 4;  // D2 on NodeMCU
+const int GPIO_D5 = 14; // D5 on NodeMCU
+const int GPIO_D6 = 12; // D6 on NodeMCU
+const int GPIO_D7 = 13; // D7 on NodeMCU
 
 void setup() {
   // put your setup code here, to run once:
   // initialize the LED digital pin as an output.
   pinMode(PIN_LED, OUTPUT);
+  pinMode(GPIO_D5, OUTPUT);
   Serial.begin(115200);
   Serial.println("\n Starting");
   unsigned long startedAt = millis();
@@ -35,7 +40,7 @@ void setup() {
   //sets timeout in seconds until configuration portal gets turned off.
   //If not specified device will remain in configuration mode until
   //switched off via webserver.
-  if (WiFi.SSID()!="") wifiManager.setConfigPortalTimeout(60); //If no access point name has been previously entered disable timeout.
+  if (WiFi.SSID()!="Fischernetz") wifiManager.setConfigPortalTimeout(60); //If no access point name has been previously entered disable timeout.
   
   //it starts an access point 
   //and goes into a blocking loop awaiting configuration
@@ -45,6 +50,7 @@ void setup() {
      //if you get here you have connected to the WiFi
      Serial.println("connected...yeey :)");
      }
+  
  digitalWrite(PIN_LED, HIGH); // Turn led off as we are not in configuration mode.
       // For some unknown reason webserver can only be started once per boot up 
       // so webserver can not be used again in the sketch.
@@ -67,7 +73,7 @@ void setup() {
   // ArduinoOTA.setPort(8266);
 
   // Hostname defaults to esp8266-[ChipID]
-  // ArduinoOTA.setHostname("myesp8266");
+  ArduinoOTA.setHostname("New_ESP");
 
   // No authentication by default
   // ArduinoOTA.setPassword("admin");
@@ -114,9 +120,9 @@ void setup() {
 void loop() {
   ArduinoOTA.handle();
   delay(1000);
-  digitalWrite(PIN_LED, HIGH);
+  digitalWrite(GPIO_D5, HIGH);
   delay(1000);
-  digitalWrite(PIN_LED, LOW);
+  digitalWrite(GPIO_D5, LOW);
  
   
 }
