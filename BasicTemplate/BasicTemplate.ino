@@ -20,8 +20,8 @@ can not be read by observers.
 
 //BMP Sensor Libs
 #include <Wire.h>
-#include <Adafruit_BMP280.h>     //https://github.com/adafruit/Adafruit_BMP280_Library.git
-
+//#include <Adafruit_BMP280.h>     //https://github.com/adafruit/Adafruit_BMP280_Library.git
+#include <Adafruit_BME280.h>       //https://github.com/adafruit/Adafruit_BME280_Library.git
 // MQTT Client
 #include <PubSubClient.h>
 
@@ -33,7 +33,9 @@ const int GPIO_D6 = 12; // D6 on NodeMCU
 const int GPIO_D7 = 13; // D7 on NodeMCU
 
 // Senor Defines
-Adafruit_BMP280 bmp; // I2C
+Adafruit_BME280 bme; // I2C
+#define SEALEVELPRESSURE_HPA (1013.25)
+
 
 // MQTT Defines 
 WiFiClient espClient;
@@ -41,7 +43,10 @@ PubSubClient client(espClient);
 unsigned long lastMsg = 0;
 #define MSG_BUFFER_SIZE  (50)
 char msg[MSG_BUFFER_SIZE];
-float value = 0;
+float valueTemp = 0;
+float valueHum = 0;
+float valuePres = 0;
+float valueAlt = 0;
 const char* mqtt_server = "192.168.2.104";
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -178,17 +183,17 @@ void setup() {
   });
   ArduinoOTA.begin();
   
-  if (!bmp.begin()) {
+  if (!bme.begin()) {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while(1);
   }
 
-  /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
-                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
-                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
-                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+ // /* Default settings from datasheet. */
+ // bme.setSampling(Adafruit_BME280::MODE_NORMAL,     /* Operating Mode. */
+ //                 Adafruit_BME280::SAMPLING_X2,     /* Temp. oversampling */
+ //                 Adafruit_BME280::SAMPLING_X16,    /* Pressure oversampling */
+ //                 Adafruit_BME280::FILTER_X16,      /* Filtering. */
+ //                 Adafruit_BME280::STANDBY_MS_500); /* Standby time. */
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -209,23 +214,41 @@ void loop() {
   unsigned long now = millis();
   if (now - lastMsg > 2000) {
     lastMsg = now;
-    value =bmp.readTemperature();
-    snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", value);
+    valueTemp =bme.readTemperature();
+    snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
     Serial.print("Publish message: ");
     Serial.println(msg);
-    client.publish("outTopic", msg);
+    client.publish("BME/Temp", msg);
     Serial.print("Temperature = ");
-    
-    Serial.print(value);
+    Serial.print(valueTemp);
     Serial.println(" *C");
 
+    valuePres =(bme.readPressure()/ 100.0F);
+    snprintf (msg, MSG_BUFFER_SIZE, "%f hPa", valuePres);
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    client.publish("BME/Pres", msg);
     Serial.print("Pressure = ");
-    Serial.print(bmp.readPressure());
-    Serial.println(" Pa");
+    Serial.print(valuePres);
+    Serial.println(" hPa");
 
-    Serial.print("Approx altitude = ");
-    Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-    Serial.println(" m"); 
+    valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
+    snprintf (msg, MSG_BUFFER_SIZE, "%f.3 m", valueAlt);
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    client.publish("BME/Alt", msg);
+    Serial.print("Approx. Altitude = ");
+    Serial.print(valueAlt);
+    Serial.println(" m");
+
+    valueHum =bme.readHumidity();
+    snprintf (msg, MSG_BUFFER_SIZE, "%.1f °/o", valueHum);
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    client.publish("BME/Hum", msg);
+    Serial.print("Humidity = ");
+    Serial.print(valueHum);
+    Serial.println(" %");
   }
 
   
