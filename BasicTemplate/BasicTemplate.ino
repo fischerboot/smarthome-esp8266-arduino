@@ -44,9 +44,14 @@ unsigned long lastMsg = 0;
 #define MSG_BUFFER_SIZE  (50)
 char msg[MSG_BUFFER_SIZE];
 float valueTemp = 0;
+float valueTemp_Pre = 0;
 float valueHum = 0;
+float valueHum_Pre = 0;
 float valuePres = 0;
+float valuePres_Pre = 0;
 float valueAlt = 0;
+float valueAlt_Pre = 0;
+float epsilon = 0.1;
 const char* mqtt_server = "192.168.2.104";
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -101,11 +106,14 @@ void setup() {
   Serial.begin(115200);
   Serial.println("\n Starting");
   unsigned long startedAt = millis();
-  WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
+  //WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
   Serial.println("Opening configuration portal");
   digitalWrite(PIN_LED, LOW); // turn the LED on by making the voltage LOW to tell us we are in configuration mode.
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;  
+  // Dont want Debug for the moment.
+  wifiManager.setDebugOutput(false);
+  
   //sets timeout in seconds until configuration portal gets turned off.
   //If not specified device will remain in configuration mode until
   //switched off via webserver.
@@ -183,7 +191,7 @@ void setup() {
   });
   ArduinoOTA.begin();
   
-  if (!bme.begin()) {
+  if (!bme.begin(BME280_ADDRESS_ALTERNATE)) {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while(1);
   }
@@ -215,40 +223,65 @@ void loop() {
   if (now - lastMsg > 2000) {
     lastMsg = now;
     valueTemp =bme.readTemperature();
-    snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish("BME/Temp", msg);
-    Serial.print("Temperature = ");
-    Serial.print(valueTemp);
-    Serial.println(" *C");
+    if (fabs(valueTemp-valueTemp_Pre) < epsilon){
+      //Just Log
+      Serial.print("Temperature = ");
+      Serial.print(valueTemp);
+      Serial.println(" *C");
+    }else{ 
+      // Publish new value
+      snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
+      Serial.print("Publish message: ");
+      Serial.println(msg);
+      client.publish("BME/Temp", msg);
+      valueTemp_Pre = valueTemp;
+    }
 
     valuePres =(bme.readPressure()/ 100.0F);
-    snprintf (msg, MSG_BUFFER_SIZE, "%f hPa", valuePres);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish("BME/Pres", msg);
-    Serial.print("Pressure = ");
-    Serial.print(valuePres);
-    Serial.println(" hPa");
+    if (fabs(valuePres-valuePres_Pre) < epsilon){
+      //Just Log
+      Serial.print("Pressure = ");
+      Serial.print(valuePres);
+      Serial.println(" hPa");
+    }else{ 
+      // Publish new value
+      snprintf (msg, MSG_BUFFER_SIZE, "%.1f hPa", valuePres);
+      Serial.print("Publish message: ");
+      Serial.println(msg);
+      client.publish("BME/Pres", msg);
+      valuePres_Pre = valuePres;
+    }
 
     valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
-    snprintf (msg, MSG_BUFFER_SIZE, "%f.3 m", valueAlt);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish("BME/Alt", msg);
-    Serial.print("Approx. Altitude = ");
-    Serial.print(valueAlt);
-    Serial.println(" m");
+    if (fabs(valueAlt-valueAlt_Pre) < epsilon){
+      //Just Log
+      Serial.print("Approx. Altitude = ");
+      Serial.print(valueAlt);
+      Serial.println(" m");
+    }else{ 
+      // Publish new value
+      snprintf (msg, MSG_BUFFER_SIZE, "%.2f m", valueAlt);
+      Serial.print("Publish message: ");
+      Serial.println(msg);
+      client.publish("BME/Alt", msg);  
+      valueAlt_Pre = valueAlt;
+    }
 
     valueHum =bme.readHumidity();
-    snprintf (msg, MSG_BUFFER_SIZE, "%.1f °/o", valueHum);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish("BME/Hum", msg);
-    Serial.print("Humidity = ");
-    Serial.print(valueHum);
-    Serial.println(" %");
+    if (fabs(valueHum-valueHum_Pre) < epsilon){
+      //Just Log
+      Serial.print("Humidity = ");
+      Serial.print(valueHum);
+      Serial.println(" %");
+    }else{ 
+      // Publish new value
+      snprintf (msg, MSG_BUFFER_SIZE, "%.1f %%", valueHum);
+      Serial.print("Publish message: ");
+      Serial.println(msg);
+      client.publish("BME/Hum", msg); 
+      valueHum_Pre = valueHum;
+    }
+    
   }
 
   
