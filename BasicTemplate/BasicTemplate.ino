@@ -1,21 +1,19 @@
 /*
-This example will open a configuration portal for 60 seconds when first powered up.
-ConfigOnSwitch is a a bettter example for most situations but this has the advantage 
-that no pins or buttons are required on the ESP8266 device at the cost of delaying 
-the user sketch for the period that the configuration portal is open.
-
-Also in this example a password is required to connect to the configuration portal 
-network. This is inconvenient but means that only those who know the password or those 
-already connected to the target WiFi network can access the configuration portal and 
-the WiFi network credentials will be sent from the browser over an encrypted connection and
-can not be read by observers.
+Configuration
 */
+#define OTA_active
+//#define WifiManager_active
+
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
 //needed for library
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
+#ifdef WifiManager_active
 #include <WiFiManager.h>          //https://github.com/kentaylor/WiFiManager
+#else 
+#include <WlanConfig.h>
+#endif
 #include <ArduinoOTA.h>
 
 //BMP Sensor Libs
@@ -36,7 +34,14 @@ const int GPIO_D7 = 13; // D7 on NodeMCU
 Adafruit_BME280 bme; // I2C
 #define SEALEVELPRESSURE_HPA (1013.25)
 
-
+#ifndef WifiManager_active
+#ifndef WlanConfig_h
+#define STASSID "------------"
+#define STAPSK  "------------"
+#endif
+const char* ssid = STASSID;
+const char* password = STAPSK;
+#endif
 // MQTT Defines 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -105,6 +110,7 @@ void setup() {
   pinMode(GPIO_D5, OUTPUT);
   Serial.begin(115200);
   Serial.println("\n Starting");
+  #ifdef WifiManager_active
   unsigned long startedAt = millis();
   //WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
   Serial.println("Opening configuration portal");
@@ -112,7 +118,7 @@ void setup() {
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;  
   // Dont want Debug for the moment.
-  wifiManager.setDebugOutput(false);
+  wifiManager.setDebugOutput(true);
   
   //sets timeout in seconds until configuration portal gets turned off.
   //If not specified device will remain in configuration mode until
@@ -143,13 +149,36 @@ void setup() {
     Serial.print("local ip: ");
     Serial.println(WiFi.localIP());
   }
+  #else
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(5000);
+    ESP.restart();
+  }
+  #endif
+  if (!bme.begin(BME280_ADDRESS_ALTERNATE)) {
+    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    while(1);
+  }
+
+ // /* Default settings from datasheet. */
+ // bme.setSampling(Adafruit_BME280::MODE_NORMAL,     /* Operating Mode. */
+ //                 Adafruit_BME280::SAMPLING_X2,     /* Temp. oversampling */
+ //                 Adafruit_BME280::SAMPLING_X16,    /* Pressure oversampling */
+ //                 Adafruit_BME280::FILTER_X16,      /* Filtering. */
+ //                 Adafruit_BME280::STANDBY_MS_500); /* Standby time. */
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 
   // OTA (only after connection is established)
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
 
   // Hostname defaults to esp8266-[ChipID]
-  // ArduinoOTA.setHostname("myesp8266");
+  ArduinoOTA.setHostname("myesp8266");
 
   // No authentication by default
   // ArduinoOTA.setPassword("admin");
@@ -190,21 +219,6 @@ void setup() {
     }
   });
   ArduinoOTA.begin();
-  
-  if (!bme.begin(BME280_ADDRESS_ALTERNATE)) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-    while(1);
-  }
-
- // /* Default settings from datasheet. */
- // bme.setSampling(Adafruit_BME280::MODE_NORMAL,     /* Operating Mode. */
- //                 Adafruit_BME280::SAMPLING_X2,     /* Temp. oversampling */
- //                 Adafruit_BME280::SAMPLING_X16,    /* Pressure oversampling */
- //                 Adafruit_BME280::FILTER_X16,      /* Filtering. */
- //                 Adafruit_BME280::STANDBY_MS_500); /* Standby time. */
-
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
 }
 
 
