@@ -3,7 +3,7 @@ Configuration
 */
 #define OTA_active
 //#define WifiManager_active
-
+#define MyESP01
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
 //needed for library
@@ -33,7 +33,7 @@ const int GPIO_D7 = 13; // D7 on NodeMCU
 // Senor Defines
 Adafruit_BME280 bme; // I2C
 #define SEALEVELPRESSURE_HPA (1013.25)
-
+static bool SensorWiringError = false;
 #ifndef WifiManager_active
 #ifndef WlanConfig_h
 #define STASSID "------------"
@@ -70,11 +70,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // Switch on the LED if an 1 was received as first character
   if ((char)payload[0] == '1') {
+    #ifndef MyESP01
     digitalWrite(GPIO_D5, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is active low on the ESP-01)
+    #else 
+    ESP.restart();
+    #endif
   } else {
+    #ifndef MyESP01
     digitalWrite(GPIO_D5, HIGH);  // Turn the LED off by making the voltage HIGH
+    #else
+    ESP.restart();
+    #endif
   }
 
 }
@@ -106,15 +114,19 @@ void reconnect() {
 void setup() {
   // put your setup code here, to run once:
   // initialize the LED digital pin as an output.
+  #ifndef MyESP01
   pinMode(PIN_LED, OUTPUT);
   pinMode(GPIO_D5, OUTPUT);
+  #endif
   Serial.begin(115200);
   Serial.println("\n Starting");
   #ifdef WifiManager_active
   unsigned long startedAt = millis();
   //WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
   Serial.println("Opening configuration portal");
+  #ifndef MyESP01
   digitalWrite(PIN_LED, LOW); // turn the LED on by making the voltage LOW to tell us we are in configuration mode.
+  #endif
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;  
   // Dont want Debug for the moment.
@@ -133,10 +145,11 @@ void setup() {
      //if you get here you have connected to the WiFi
      Serial.println("connected...yeey :)");
      }
- digitalWrite(PIN_LED, HIGH); // Turn led off as we are not in configuration mode.
+   #ifndef MyESP01
+  digitalWrite(PIN_LED, HIGH); // Turn led off as we are not in configuration mode.
       // For some unknown reason webserver can only be started once per boot up 
       // so webserver can not be used again in the sketch.
-    
+   #endif 
   Serial.print("After waiting ");
   int connRes = WiFi.waitForConnectResult();
   float waited = (millis()- startedAt);
@@ -160,7 +173,7 @@ void setup() {
   #endif
   if (!bme.begin(BME280_ADDRESS_ALTERNATE)) {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-    while(1);
+    SensorWiringError = true;
   }
 
  // /* Default settings from datasheet. */
@@ -236,7 +249,9 @@ void loop() {
   unsigned long now = millis();
   if (now - lastMsg > 2000) {
     lastMsg = now;
-    valueTemp =bme.readTemperature();
+    if(!SensorWiringError){
+      valueTemp =bme.readTemperature();
+    }
     if (fabs(valueTemp-valueTemp_Pre) < epsilon){
       //Just Log
       Serial.print("Temperature = ");
@@ -250,8 +265,9 @@ void loop() {
       client.publish("BME/Temp", msg);
       valueTemp_Pre = valueTemp;
     }
-
-    valuePres =(bme.readPressure()/ 100.0F);
+    if(!SensorWiringError){
+      valuePres =(bme.readPressure()/ 100.0F);
+    }
     if (fabs(valuePres-valuePres_Pre) < epsilon){
       //Just Log
       Serial.print("Pressure = ");
@@ -265,8 +281,9 @@ void loop() {
       client.publish("BME/Pres", msg);
       valuePres_Pre = valuePres;
     }
-
-    valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
+    if(!SensorWiringError){
+      valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
+    }
     if (fabs(valueAlt-valueAlt_Pre) < epsilon){
       //Just Log
       Serial.print("Approx. Altitude = ");
@@ -280,8 +297,9 @@ void loop() {
       client.publish("BME/Alt", msg);  
       valueAlt_Pre = valueAlt;
     }
-
-    valueHum =bme.readHumidity();
+    if(!SensorWiringError){
+      valueHum =bme.readHumidity();
+    }
     if (fabs(valueHum-valueHum_Pre) < epsilon){
       //Just Log
       Serial.print("Humidity = ");
