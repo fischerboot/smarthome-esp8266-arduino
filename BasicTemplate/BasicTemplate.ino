@@ -46,6 +46,7 @@ const char* password = STAPSK;
 WiFiClient espClient;
 PubSubClient client(espClient);
 unsigned long lastMsg = 0;
+unsigned long lastTry = 0;
 #define MSG_BUFFER_SIZE  (50)
 char msg[MSG_BUFFER_SIZE];
 float valueTemp = 0;
@@ -58,6 +59,7 @@ float valueAlt = 0;
 float valueAlt_Pre = 0;
 float epsilon = 0.1;
 const char* mqtt_server = "192.168.2.104";
+static bool MQTTConnection = false;
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
@@ -89,7 +91,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void reconnect() {
   // Loop until we're reconnected
-  while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Create a random client ID
     String clientId = "ESP8266Client-";
@@ -101,14 +102,14 @@ void reconnect() {
       client.publish("outTopic", "hello world");
       // ... and resubscribe
       client.subscribe("inTopic");
+      MQTTConnection = true;
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
-      delay(5000);
+      MQTTConnection = false;
     }
-  }
 }
 
 void setup() {
@@ -241,80 +242,81 @@ void loop() {
   digitalWrite(GPIO_D5, HIGH);
   delay(1000);
   digitalWrite(GPIO_D5, LOW);*/
-
+  unsigned long now = millis(); 
   if (!client.connected()) {
+    if (now - lastTry > 5000) {
+      lastTry = now;
     reconnect();
+    }
   }
   client.loop();
-  unsigned long now = millis();
-  if (now - lastMsg > 2000) {
-    lastMsg = now;
-    if(!SensorWiringError){
-      valueTemp =bme.readTemperature();
+  if(MQTTConnection){
+    if (now - lastMsg > 2000) {
+      lastMsg = now;
+      if(!SensorWiringError){
+        valueTemp =bme.readTemperature();
+      }
+      if (fabs(valueTemp-valueTemp_Pre) < epsilon){
+        //Just Log
+        Serial.print("Temperature = ");
+        Serial.print(valueTemp);
+        Serial.println(" *C");
+      }else{ 
+        // Publish new value
+        snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
+        Serial.print("Publish message: ");
+        Serial.println(msg);
+        client.publish("BME/Temp", msg);
+        valueTemp_Pre = valueTemp;
+      }
+      if(!SensorWiringError){
+        valuePres =(bme.readPressure()/ 100.0F);
+      }
+      if (fabs(valuePres-valuePres_Pre) < epsilon){
+        //Just Log
+        Serial.print("Pressure = ");
+        Serial.print(valuePres);
+        Serial.println(" hPa");
+      }else{ 
+        // Publish new value
+        snprintf (msg, MSG_BUFFER_SIZE, "%.1f hPa", valuePres);
+        Serial.print("Publish message: ");
+        Serial.println(msg);
+        client.publish("BME/Pres", msg);
+        valuePres_Pre = valuePres;
+      }
+      if(!SensorWiringError){
+        valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
+      }
+      if (fabs(valueAlt-valueAlt_Pre) < epsilon){
+        //Just Log
+        Serial.print("Approx. Altitude = ");
+        Serial.print(valueAlt);
+        Serial.println(" m");
+      }else{ 
+        // Publish new value
+        snprintf (msg, MSG_BUFFER_SIZE, "%.2f m", valueAlt);
+        Serial.print("Publish message: ");
+        Serial.println(msg);
+        client.publish("BME/Alt", msg);  
+        valueAlt_Pre = valueAlt;
+      }
+      if(!SensorWiringError){
+        valueHum =bme.readHumidity();
+      }
+      if (fabs(valueHum-valueHum_Pre) < epsilon){
+        //Just Log
+        Serial.print("Humidity = ");
+        Serial.print(valueHum);
+        Serial.println(" %");
+      }else{ 
+        // Publish new value
+        snprintf (msg, MSG_BUFFER_SIZE, "%.1f %%", valueHum);
+        Serial.print("Publish message: ");
+        Serial.println(msg);
+        client.publish("BME/Hum", msg); 
+        valueHum_Pre = valueHum;
+      } 
     }
-    if (fabs(valueTemp-valueTemp_Pre) < epsilon){
-      //Just Log
-      Serial.print("Temperature = ");
-      Serial.print(valueTemp);
-      Serial.println(" *C");
-    }else{ 
-      // Publish new value
-      snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
-      Serial.print("Publish message: ");
-      Serial.println(msg);
-      client.publish("BME/Temp", msg);
-      valueTemp_Pre = valueTemp;
-    }
-    if(!SensorWiringError){
-      valuePres =(bme.readPressure()/ 100.0F);
-    }
-    if (fabs(valuePres-valuePres_Pre) < epsilon){
-      //Just Log
-      Serial.print("Pressure = ");
-      Serial.print(valuePres);
-      Serial.println(" hPa");
-    }else{ 
-      // Publish new value
-      snprintf (msg, MSG_BUFFER_SIZE, "%.1f hPa", valuePres);
-      Serial.print("Publish message: ");
-      Serial.println(msg);
-      client.publish("BME/Pres", msg);
-      valuePres_Pre = valuePres;
-    }
-    if(!SensorWiringError){
-      valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
-    }
-    if (fabs(valueAlt-valueAlt_Pre) < epsilon){
-      //Just Log
-      Serial.print("Approx. Altitude = ");
-      Serial.print(valueAlt);
-      Serial.println(" m");
-    }else{ 
-      // Publish new value
-      snprintf (msg, MSG_BUFFER_SIZE, "%.2f m", valueAlt);
-      Serial.print("Publish message: ");
-      Serial.println(msg);
-      client.publish("BME/Alt", msg);  
-      valueAlt_Pre = valueAlt;
-    }
-    if(!SensorWiringError){
-      valueHum =bme.readHumidity();
-    }
-    if (fabs(valueHum-valueHum_Pre) < epsilon){
-      //Just Log
-      Serial.print("Humidity = ");
-      Serial.print(valueHum);
-      Serial.println(" %");
-    }else{ 
-      // Publish new value
-      snprintf (msg, MSG_BUFFER_SIZE, "%.1f %%", valueHum);
-      Serial.print("Publish message: ");
-      Serial.println(msg);
-      client.publish("BME/Hum", msg); 
-      valueHum_Pre = valueHum;
-    }
-    
   }
-
-  
 }
