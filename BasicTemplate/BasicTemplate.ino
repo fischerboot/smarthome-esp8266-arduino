@@ -1,6 +1,12 @@
 /*
 Configuration
 */
+#define LoggingWithTimeout
+
+#ifdef LoggingWithTimeout
+#define logTimeout (1800) // 60 min * 60sec = 1 std
+#endif 
+
 #define OTA_active
 //#define WifiManager_active
 #define MyESP01
@@ -45,6 +51,7 @@ const char* password = STAPSK;
 // MQTT Defines 
 WiFiClient espClient;
 PubSubClient client(espClient);
+unsigned long cnt = 0; // 2 seconds
 unsigned long lastMsg = 0;
 unsigned long lastTry = 0;
 #define MSG_BUFFER_SIZE  (50)
@@ -58,7 +65,7 @@ float valuePres_Pre = 0;
 float valueAlt = 0;
 float valueAlt_Pre = 0;
 float epsilon = 0.1;
-const char* mqtt_server = "192.168.2.104";
+const char* mqtt_server = "192.168.2.127";
 static bool MQTTConnection = false;
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -99,7 +106,7 @@ void reconnect() {
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("outTopic", "hello world");
+      client.publish("outTopic", "20200705v1.4");
       // ... and resubscribe
       client.subscribe("inTopic");
       MQTTConnection = true;
@@ -253,19 +260,34 @@ void loop() {
   if(MQTTConnection){
     if (now - lastMsg > 2000) {
       lastMsg = now;
+      cnt++;
+      snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt/2);
+      client.publish("BME/alive", msg);
       if(!SensorWiringError){
         valueTemp =bme.readTemperature();
       }
       if (fabs(valueTemp-valueTemp_Pre) < epsilon){
         //Just Log
-        Serial.print("Temperature = ");
-        Serial.print(valueTemp);
-        Serial.println(" *C");
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif
+          Serial.print("Temperature = ");
+          Serial.print(valueTemp);
+          Serial.println(" *C");
+#ifdef LoggingWithTimeout
+        }
+#endif
       }else{ 
         // Publish new value
         snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif        
         Serial.print("Publish message: ");
         Serial.println(msg);
+#ifdef LoggingWithTimeout
+        }
+#endif        
         client.publish("BME/Temp", msg);
         valueTemp_Pre = valueTemp;
       }
@@ -274,14 +296,25 @@ void loop() {
       }
       if (fabs(valuePres-valuePres_Pre) < epsilon){
         //Just Log
-        Serial.print("Pressure = ");
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif        Serial.print("Pressure = ");
         Serial.print(valuePres);
         Serial.println(" hPa");
+#ifdef LoggingWithTimeout
+        }
+#endif
       }else{ 
         // Publish new value
         snprintf (msg, MSG_BUFFER_SIZE, "%.1f hPa", valuePres);
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif
         Serial.print("Publish message: ");
         Serial.println(msg);
+#ifdef LoggingWithTimeout
+        }
+#endif
         client.publish("BME/Pres", msg);
         valuePres_Pre = valuePres;
       }
@@ -290,14 +323,27 @@ void loop() {
       }
       if (fabs(valueAlt-valueAlt_Pre) < epsilon){
         //Just Log
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif
         Serial.print("Approx. Altitude = ");
         Serial.print(valueAlt);
         Serial.println(" m");
+#ifdef LoggingWithTimeout
+        }
+#endif
+
       }else{ 
         // Publish new value
         snprintf (msg, MSG_BUFFER_SIZE, "%.2f m", valueAlt);
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif
         Serial.print("Publish message: ");
         Serial.println(msg);
+#ifdef LoggingWithTimeout
+        }
+#endif
         client.publish("BME/Alt", msg);  
         valueAlt_Pre = valueAlt;
       }
@@ -306,14 +352,26 @@ void loop() {
       }
       if (fabs(valueHum-valueHum_Pre) < epsilon){
         //Just Log
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif
         Serial.print("Humidity = ");
         Serial.print(valueHum);
         Serial.println(" %");
+#ifdef LoggingWithTimeout
+        }
+#endif
       }else{ 
         // Publish new value
         snprintf (msg, MSG_BUFFER_SIZE, "%.1f %%", valueHum);
+#ifdef LoggingWithTimeout
+        if(cnt < logTimeout){
+#endif
         Serial.print("Publish message: ");
         Serial.println(msg);
+#ifdef LoggingWithTimeout
+        }
+#endif
         client.publish("BME/Hum", msg); 
         valueHum_Pre = valueHum;
       } 
