@@ -106,7 +106,7 @@ void reconnect() {
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("outTopic", "20200705v1.4");
+      client.publish("outTopic", "20200705v1.5");
       // ... and resubscribe
       client.subscribe("inTopic");
       MQTTConnection = true;
@@ -261,7 +261,7 @@ void loop() {
     if (now - lastMsg > 2000) {
       lastMsg = now;
       cnt++;
-      snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt/2);
+      snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt*2);
       client.publish("BME/alive", msg);
       if(!SensorWiringError){
         valueTemp =bme.readTemperature();
