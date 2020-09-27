@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20200927v0.3";
+const char* versionStr = "20200927v0.4";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -173,7 +173,7 @@ void setup() {
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-
+  mySwitch.enableTransmit(GPIO_D6);
   // OTA (only after connection is established)
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
@@ -220,7 +220,6 @@ void setup() {
     }
   });
   ArduinoOTA.begin();
-  mySwitch.enableTransmit(GPIO_D6);
 }
 
 
@@ -246,15 +245,15 @@ void loop() {
       cnt++;
       snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt*2);
       client.publish("RFC/alive", msg);
+       
       if(cnt%2==0)
       {
         Serial.println("On");
-        mySwitch.switchOn("10100", "00010");
-        digitalWrite(GPIO_D5, HIGH);
-        
+        mySwitch.switchOn("00000", "10100");
+        digitalWrite(GPIO_D5, HIGH); 
       }else{
         Serial.println("Off");
-        mySwitch.switchOff("10100", "00010");
+        mySwitch.switchOff("10100", "10100");
         digitalWrite(GPIO_D5, LOW);
       }
     }
