@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20200927v0.2";
+const char* versionStr = "20200927v0.3";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -10,7 +10,7 @@ const char* versionStr = "20200927v0.2";
 
 #define OTA_active
 //#define WifiManager_active
-#define MyESP01
+//#define MyESP01
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
 #include <RCSwitch.h>
@@ -69,7 +69,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // Switch on the LED if an 1 was received as first character
   if ((char)payload[0] == '1') {
     #ifndef MyESP01
-    //digitalWrite(GPIO_D5, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is active low on the ESP-01)
     #else 
@@ -77,7 +77,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     #endif
   } else {
     #ifndef MyESP01
-    //digitalWrite(GPIO_D5, HIGH);  // Turn the LED off by making the voltage HIGH
+    digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
     #else
     ESP.restart();
     #endif
@@ -250,12 +250,12 @@ void loop() {
       {
         Serial.println("On");
         mySwitch.switchOn("10100", "00010");
-        digitalWrite(GPIO_D2, HIGH);
+        digitalWrite(GPIO_D5, HIGH);
         
       }else{
         Serial.println("Off");
         mySwitch.switchOff("10100", "00010");
-        digitalWrite(GPIO_D2, LOW);
+        digitalWrite(GPIO_D5, LOW);
       }
     }
   }
