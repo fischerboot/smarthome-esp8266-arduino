@@ -1,6 +1,7 @@
 /*
 Configuration
 */
+const char* versionStr = "20200927v0.2";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -12,6 +13,11 @@ Configuration
 #define MyESP01
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
+#include <RCSwitch.h>
+
+RCSwitch mySwitch = RCSwitch();   //https://github.com/sui77/rc-switch
+
+
 //needed for library
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
@@ -22,10 +28,6 @@ Configuration
 #endif
 #include <ArduinoOTA.h>
 
-//BMP Sensor Libs
-#include <Wire.h>
-//#include <Adafruit_BMP280.h>     //https://github.com/adafruit/Adafruit_BMP280_Library.git
-#include <Adafruit_BME280.h>       //https://github.com/adafruit/Adafruit_BME280_Library.git
 // MQTT Client
 #include <PubSubClient.h>
 
@@ -36,10 +38,6 @@ const int GPIO_D5 = 14; // D5 on NodeMCU
 const int GPIO_D6 = 12; // D6 on NodeMCU
 const int GPIO_D7 = 13; // D7 on NodeMCU
 
-// Senor Defines
-Adafruit_BME280 bme; // I2C
-#define SEALEVELPRESSURE_HPA (1013.25)
-static bool SensorWiringError = false;
 #ifndef WifiManager_active
 #ifndef WlanConfig_h
 #define STASSID "------------"
@@ -56,15 +54,6 @@ unsigned long lastMsg = 0;
 unsigned long lastTry = 0;
 #define MSG_BUFFER_SIZE  (50)
 char msg[MSG_BUFFER_SIZE];
-float valueTemp = 0;
-float valueTemp_Pre = 0;
-float valueHum = 0;
-float valueHum_Pre = 0;
-float valuePres = 0;
-float valuePres_Pre = 0;
-float valueAlt = 0;
-float valueAlt_Pre = 0;
-float epsilon = 0.1;
 const char* mqtt_server = "192.168.2.127";
 static bool MQTTConnection = false;
 
@@ -80,7 +69,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // Switch on the LED if an 1 was received as first character
   if ((char)payload[0] == '1') {
     #ifndef MyESP01
-    digitalWrite(GPIO_D5, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    //digitalWrite(GPIO_D5, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is active low on the ESP-01)
     #else 
@@ -88,7 +77,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     #endif
   } else {
     #ifndef MyESP01
-    digitalWrite(GPIO_D5, HIGH);  // Turn the LED off by making the voltage HIGH
+    //digitalWrite(GPIO_D5, HIGH);  // Turn the LED off by making the voltage HIGH
     #else
     ESP.restart();
     #endif
@@ -106,9 +95,9 @@ void reconnect() {
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("outTopic", "20200705v1.5");
+      client.publish("RFC/outTopic", versionStr);
       // ... and resubscribe
-      client.subscribe("inTopic");
+      client.subscribe("RFC/inTopic");
       MQTTConnection = true;
     } else {
       Serial.print("failed, rc=");
@@ -125,9 +114,11 @@ void setup() {
   #ifndef MyESP01
   pinMode(PIN_LED, OUTPUT);
   pinMode(GPIO_D5, OUTPUT);
+  pinMode(GPIO_D2, OUTPUT);
   #endif
   Serial.begin(115200);
-  Serial.println("\n Starting");
+  Serial.print("\n Starting Version:");
+  Serial.println(versionStr);
   #ifdef WifiManager_active
   unsigned long startedAt = millis();
   //WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
@@ -179,17 +170,6 @@ void setup() {
     ESP.restart();
   }
   #endif
-  if (!bme.begin(BME280_ADDRESS_ALTERNATE)) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-    SensorWiringError = true;
-  }
-
- // /* Default settings from datasheet. */
- // bme.setSampling(Adafruit_BME280::MODE_NORMAL,     /* Operating Mode. */
- //                 Adafruit_BME280::SAMPLING_X2,     /* Temp. oversampling */
- //                 Adafruit_BME280::SAMPLING_X16,    /* Pressure oversampling */
- //                 Adafruit_BME280::FILTER_X16,      /* Filtering. */
- //                 Adafruit_BME280::STANDBY_MS_500); /* Standby time. */
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -199,7 +179,7 @@ void setup() {
   // ArduinoOTA.setPort(8266);
 
   // Hostname defaults to esp8266-[ChipID]
-  ArduinoOTA.setHostname("myesp8266");
+  ArduinoOTA.setHostname("myesp8266_RFC");
 
   // No authentication by default
   // ArduinoOTA.setPassword("admin");
@@ -240,15 +220,18 @@ void setup() {
     }
   });
   ArduinoOTA.begin();
+  mySwitch.enableTransmit(GPIO_D6);
 }
 
 
 void loop() {
   ArduinoOTA.handle();
+  #ifndef MyESP01
   /*delay(1000);
   digitalWrite(GPIO_D5, HIGH);
   delay(1000);
   digitalWrite(GPIO_D5, LOW);*/
+  #endif
   unsigned long now = millis(); 
   if (!client.connected()) {
     if (now - lastTry > 5000) {
@@ -262,119 +245,18 @@ void loop() {
       lastMsg = now;
       cnt++;
       snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt*2);
-      client.publish("BME/alive", msg);
-      if(!SensorWiringError){
-        valueTemp =bme.readTemperature();
+      client.publish("RFC/alive", msg);
+      if(cnt%2==0)
+      {
+        Serial.println("On");
+        mySwitch.switchOn("10100", "00010");
+        digitalWrite(GPIO_D2, HIGH);
+        
+      }else{
+        Serial.println("Off");
+        mySwitch.switchOff("10100", "00010");
+        digitalWrite(GPIO_D2, LOW);
       }
-      if (fabs(valueTemp-valueTemp_Pre) < epsilon){
-        //Just Log
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif
-          Serial.print("Temperature = ");
-          Serial.print(valueTemp);
-          Serial.println(" *C");
-#ifdef LoggingWithTimeout
-        }
-#endif
-      }else{ 
-        // Publish new value
-        snprintf (msg, MSG_BUFFER_SIZE, "%2.2f °C", valueTemp);
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif        
-        Serial.print("Publish message: ");
-        Serial.println(msg);
-#ifdef LoggingWithTimeout
-        }
-#endif        
-        client.publish("BME/Temp", msg);
-        valueTemp_Pre = valueTemp;
-      }
-      if(!SensorWiringError){
-        valuePres =(bme.readPressure()/ 100.0F);
-      }
-      if (fabs(valuePres-valuePres_Pre) < epsilon){
-        //Just Log
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif        Serial.print("Pressure = ");
-        Serial.print(valuePres);
-        Serial.println(" hPa");
-#ifdef LoggingWithTimeout
-        }
-#endif
-      }else{ 
-        // Publish new value
-        snprintf (msg, MSG_BUFFER_SIZE, "%.1f hPa", valuePres);
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif
-        Serial.print("Publish message: ");
-        Serial.println(msg);
-#ifdef LoggingWithTimeout
-        }
-#endif
-        client.publish("BME/Pres", msg);
-        valuePres_Pre = valuePres;
-      }
-      if(!SensorWiringError){
-        valueAlt =bme.readAltitude(SEALEVELPRESSURE_HPA);
-      }
-      if (fabs(valueAlt-valueAlt_Pre) < epsilon){
-        //Just Log
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif
-        Serial.print("Approx. Altitude = ");
-        Serial.print(valueAlt);
-        Serial.println(" m");
-#ifdef LoggingWithTimeout
-        }
-#endif
-
-      }else{ 
-        // Publish new value
-        snprintf (msg, MSG_BUFFER_SIZE, "%.2f m", valueAlt);
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif
-        Serial.print("Publish message: ");
-        Serial.println(msg);
-#ifdef LoggingWithTimeout
-        }
-#endif
-        client.publish("BME/Alt", msg);  
-        valueAlt_Pre = valueAlt;
-      }
-      if(!SensorWiringError){
-        valueHum =bme.readHumidity();
-      }
-      if (fabs(valueHum-valueHum_Pre) < epsilon){
-        //Just Log
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif
-        Serial.print("Humidity = ");
-        Serial.print(valueHum);
-        Serial.println(" %");
-#ifdef LoggingWithTimeout
-        }
-#endif
-      }else{ 
-        // Publish new value
-        snprintf (msg, MSG_BUFFER_SIZE, "%.1f %%", valueHum);
-#ifdef LoggingWithTimeout
-        if(cnt < logTimeout){
-#endif
-        Serial.print("Publish message: ");
-        Serial.println(msg);
-#ifdef LoggingWithTimeout
-        }
-#endif
-        client.publish("BME/Hum", msg); 
-        valueHum_Pre = valueHum;
-      } 
     }
   }
 }
