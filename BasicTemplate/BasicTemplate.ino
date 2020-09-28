@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20200927v0.4";
+const char* versionStr = "20200928v0.5";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -72,12 +72,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
     digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is active low on the ESP-01)
+    mySwitch.switchOff("10100", "10000");
     #else 
     ESP.restart();
     #endif
   } else {
     #ifndef MyESP01
     digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
+    mySwitch.switchOn("10100", "10000");
     #else
     ESP.restart();
     #endif
@@ -249,11 +251,13 @@ void loop() {
       if(cnt%2==0)
       {
         Serial.println("On");
-        mySwitch.switchOn("00000", "10100");
+        //mySwitch.switchOn("10101", "10000");
+        //mySwitch.switchOn("10100", "10000");
         digitalWrite(GPIO_D5, HIGH); 
       }else{
         Serial.println("Off");
-        mySwitch.switchOff("10100", "10100");
+        //mySwitch.switchOff("10101", "10000");
+        //mySwitch.switchOff("10100", "10000");
         digitalWrite(GPIO_D5, LOW);
       }
     }
