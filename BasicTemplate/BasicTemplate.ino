@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20200928v0.5";
+const char* versionStr = "202010008v0.6";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -17,6 +17,16 @@ const char* versionStr = "20200928v0.5";
 
 RCSwitch mySwitch = RCSwitch();   //https://github.com/sui77/rc-switch
 
+//needed for Telnet?
+//#include <ESP8266mDNS.h>
+//#include <WiFiUdp.h>
+enum LogLevel{
+  Verbose   = 0,
+  Debug     = 1,
+  Error     = 2,
+  Warning   = 3,
+  Info      = 4
+};
 
 //needed for library
 #include <ESP8266WebServer.h>
@@ -56,6 +66,14 @@ unsigned long lastTry = 0;
 char msg[MSG_BUFFER_SIZE];
 const char* mqtt_server = "192.168.2.127";
 static bool MQTTConnection = false;
+
+#define MAX_TELNET_CLIENTS 2
+
+uint8_t i;
+bool ConnectionEstablished; // Flag for successfully handled connection
+WiFiServer TelnetServer(23);
+WiFiClient TelnetClient[MAX_TELNET_CLIENTS];
+
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
@@ -173,6 +191,10 @@ void setup() {
   }
   #endif
 
+  Serial.println("Starting Telnet server");
+  TelnetServer.begin();
+  TelnetServer.setNoDelay(true);
+
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   mySwitch.enableTransmit(GPIO_D6);
@@ -224,9 +246,11 @@ void setup() {
   ArduinoOTA.begin();
 }
 
-
 void loop() {
   ArduinoOTA.handle();
+
+  Telnet();  // Handle telnet connections
+  
   #ifndef MyESP01
   /*delay(1000);
   digitalWrite(GPIO_D5, HIGH);
@@ -251,15 +275,108 @@ void loop() {
       if(cnt%2==0)
       {
         Serial.println("On");
+        TelnetMsg("On");
         //mySwitch.switchOn("10101", "10000");
         //mySwitch.switchOn("10100", "10000");
         digitalWrite(GPIO_D5, HIGH); 
       }else{
         Serial.println("Off");
+        TelnetMsg("Off");
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
         digitalWrite(GPIO_D5, LOW);
       }
     }
   }
+}
+
+void TelnetMsg(String text){
+  for(i = 0; i < MAX_TELNET_CLIENTS; i++)
+  {
+    if (TelnetClient[i] || TelnetClient[i].connected())
+    {
+      TelnetClient[i].println(text);
+    }
+  }
+  delay(10);  // to avoid strange characters left in buffer
+}
+      
+void Telnet(){
+  // Cleanup disconnected session
+  for(i = 0; i < MAX_TELNET_CLIENTS; i++)
+  {
+    if (TelnetClient[i] && !TelnetClient[i].connected())
+    {
+      Serial.print("Client disconnected ... terminate session "); Serial.println(i+1); 
+      TelnetClient[i].stop();
+    }
+  }
+  
+  // Check new client connections
+  if (TelnetServer.hasClient())
+  {
+    ConnectionEstablished = false; // Set to false
+    
+    for(i = 0; i < MAX_TELNET_CLIENTS; i++)
+    {
+      // Serial.print("Checking telnet session "); Serial.println(i+1);
+      
+      // find free socket
+      if (!TelnetClient[i])
+      {
+        TelnetClient[i] = TelnetServer.available(); 
+        
+        Serial.print("New Telnet client connected to session "); Serial.println(i+1);
+        
+        TelnetClient[i].flush();  // clear input buffer, else you get strange characters
+        TelnetClient[i].println("Welcome!");
+        
+        TelnetClient[i].print("Millis since start: ");
+        TelnetClient[i].println(millis());
+        
+        TelnetClient[i].print("Free Heap RAM: ");
+        TelnetClient[i].println(ESP.getFreeHeap());
+        
+        TelnetClient[i].print("Version: ");
+        TelnetClient[i].println(versionStr);
+        
+        TelnetClient[i].println("----------------------------------------------------------------");
+        
+        ConnectionEstablished = true; 
+        
+        break;
+      }
+      else
+      {
+        // Serial.println("Session is in use");
+      }
+    }
+
+    if (ConnectionEstablished == false)
+    {
+      Serial.println("No free sessions ... drop connection");
+      TelnetServer.available().stop();
+      // TelnetMsg("An other user cannot connect ... MAX_TELNET_CLIENTS limit is reached!");
+    }
+  }
+
+  for(i = 0; i < MAX_TELNET_CLIENTS; i++)
+  {
+    if (TelnetClient[i] && TelnetClient[i].connected())
+    {
+      if(TelnetClient[i].available())
+      { 
+        //get data from the telnet client
+        while(TelnetClient[i].available())
+        {
+          Serial.write(TelnetClient[i].read());
+        }
+      }
+    }
+  }
+}
+
+void logger(String logInput,uint8_t level){
+  uint8_t logLevel = level;
+  Serial.println(logInput);
 }
