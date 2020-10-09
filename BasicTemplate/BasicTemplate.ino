@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "202010008v0.6";
+const char* versionStr = "202010009v0.7";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -74,6 +74,7 @@ bool ConnectionEstablished; // Flag for successfully handled connection
 WiFiServer TelnetServer(23);
 WiFiClient TelnetClient[MAX_TELNET_CLIENTS];
 
+int bewegungsstatus=0;
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
@@ -90,14 +91,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
     digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is active low on the ESP-01)
-    mySwitch.switchOff("10100", "10000");
+    mySwitch.switchOn("10100", "10000");
     #else 
     ESP.restart();
     #endif
   } else {
     #ifndef MyESP01
     digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-    mySwitch.switchOn("10100", "10000");
+    mySwitch.switchOff("10100", "10000");
     #else
     ESP.restart();
     #endif
@@ -134,7 +135,7 @@ void setup() {
   #ifndef MyESP01
   pinMode(PIN_LED, OUTPUT);
   pinMode(GPIO_D5, OUTPUT);
-  pinMode(GPIO_D2, OUTPUT);
+  pinMode(GPIO_D2, INPUT);
   #endif
   Serial.begin(115200);
   Serial.print("\n Starting Version:");
@@ -251,6 +252,7 @@ void loop() {
 
   Telnet();  // Handle telnet connections
   
+  
   #ifndef MyESP01
   /*delay(1000);
   digitalWrite(GPIO_D5, HIGH);
@@ -271,7 +273,18 @@ void loop() {
       cnt++;
       snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt*2);
       client.publish("RFC/alive", msg);
-       
+      bewegungsstatus=digitalRead(GPIO_D2); //ier wird der Pin7 ausgelesen. Das Ergebnis wird unter der Variablen „bewegungsstatus“ mit dem Wert „HIGH“ für 5Volt oder „LOW“ für 0Volt gespeichert.
+      if (bewegungsstatus == HIGH){
+        digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
+        // but actually the LED is on; this is because
+        // it is active low on the ESP-01)
+        mySwitch.switchOn("10100", "10000");
+        }else {
+          digitalWrite(PIN_LED, HIGH);   // Turn the LED on (Note that LOW is the voltage level
+          // but actually the LED is on; this is because
+          // it is active low on the ESP-01)
+           mySwitch.switchOff("10100", "10000");
+         } //Programmabschnitt des else-Befehls schließen.
       if(cnt%2==0)
       {
         Serial.println("On");
