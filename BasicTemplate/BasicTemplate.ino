@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "202010009v0.7";
+const char* versionStr = "20201122v0.8";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -10,7 +10,7 @@ const char* versionStr = "202010009v0.7";
 
 #define OTA_active
 //#define WifiManager_active
-//#define MyESP01
+#define MyESP01
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
 #include <RCSwitch.h>
@@ -43,6 +43,7 @@ enum LogLevel{
 
 // Onboard LED I/O pin on NodeMCU board
 const int PIN_LED = 2;  // D4 on NodeMCU Controls the onboard LED.
+const int GPIO_0 = 2; // ESP-01 Pin
 const int GPIO_D2 = 4;  // D2 on NodeMCU
 const int GPIO_D5 = 14; // D5 on NodeMCU
 const int GPIO_D6 = 12; // D6 on NodeMCU
@@ -93,14 +94,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
     // it is active low on the ESP-01)
     mySwitch.switchOn("10100", "10000");
     #else 
-    ESP.restart();
+    mySwitch.switchOn("10100", "10000");
+    TelnetMsg("RFC On");
+    //ESP.restart();
     #endif
   } else {
     #ifndef MyESP01
     digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
     mySwitch.switchOff("10100", "10000");
     #else
-    ESP.restart();
+    mySwitch.switchOff("10100", "10000");
+    TelnetMsg("RFC Off");
+    //ESP.restart();
     #endif
   }
 
@@ -198,7 +203,7 @@ void setup() {
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-  mySwitch.enableTransmit(GPIO_D6);
+  mySwitch.enableTransmit(GPIO_0);
   // OTA (only after connection is established)
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
@@ -273,7 +278,7 @@ void loop() {
       cnt++;
       snprintf (msg, MSG_BUFFER_SIZE, "%lu Sec alive", cnt*2);
       client.publish("RFC/alive", msg);
-      bewegungsstatus=digitalRead(GPIO_D2); //ier wird der Pin7 ausgelesen. Das Ergebnis wird unter der Variablen „bewegungsstatus“ mit dem Wert „HIGH“ für 5Volt oder „LOW“ für 0Volt gespeichert.
+      /*bewegungsstatus=digitalRead(GPIO_D2); //ier wird der Pin7 ausgelesen. Das Ergebnis wird unter der Variablen „bewegungsstatus“ mit dem Wert „HIGH“ für 5Volt oder „LOW“ für 0Volt gespeichert.
       if (bewegungsstatus == HIGH){
         digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
         // but actually the LED is on; this is because
@@ -285,19 +290,20 @@ void loop() {
           // it is active low on the ESP-01)
            mySwitch.switchOff("10100", "10000");
          } //Programmabschnitt des else-Befehls schließen.
+         */
       if(cnt%2==0)
       {
         Serial.println("On");
         TelnetMsg("On");
         //mySwitch.switchOn("10101", "10000");
         //mySwitch.switchOn("10100", "10000");
-        digitalWrite(GPIO_D5, HIGH); 
+        //digitalWrite(GPIO_D5, HIGH); 
       }else{
         Serial.println("Off");
         TelnetMsg("Off");
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
-        digitalWrite(GPIO_D5, LOW);
+        //digitalWrite(GPIO_D5, LOW);
       }
     }
   }
