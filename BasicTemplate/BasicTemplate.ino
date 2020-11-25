@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20201122v0.8";
+const char* versionStr = "20201125v0.10";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -16,7 +16,7 @@ const char* versionStr = "20201122v0.8";
 #include <RCSwitch.h>
 
 RCSwitch mySwitch = RCSwitch();   //https://github.com/sui77/rc-switch
-
+#define TRANSMIT_RETRY (5)
 //needed for Telnet?
 //#include <ESP8266mDNS.h>
 //#include <WiFiUdp.h>
@@ -27,7 +27,7 @@ enum LogLevel{
   Warning   = 3,
   Info      = 4
 };
-
+static LogLevel UsedLevel = Error; 
 //needed for library
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
@@ -78,9 +78,9 @@ WiFiClient TelnetClient[MAX_TELNET_CLIENTS];
 int bewegungsstatus=0;
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
+  logger("Message arrived [",Verbose);
+  logger(topic,Verbose);
+  logger("] ",Verbose);
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
@@ -94,17 +94,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
     // it is active low on the ESP-01)
     mySwitch.switchOn("10100", "10000");
     #else 
-    mySwitch.switchOn("10100", "10000");
-    TelnetMsg("RFC On");
+    mySwitch.switchOff("10100", "10000");
+    logger("RFC Off",Debug);
     //ESP.restart();
     #endif
   } else {
     #ifndef MyESP01
     digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-    mySwitch.switchOff("10100", "10000");
+    mySwitch.switchOn("10100", "10000");
     #else
-    mySwitch.switchOff("10100", "10000");
-    TelnetMsg("RFC Off");
+    mySwitch.switchOn("10100", "10000");
+    logger("RFC On",Debug);
     //ESP.restart();
     #endif
   }
@@ -124,6 +124,7 @@ void reconnect() {
       client.publish("RFC/outTopic", versionStr);
       // ... and resubscribe
       client.subscribe("RFC/inTopic");
+      client.subscribe("test/switch");
       MQTTConnection = true;
     } else {
       Serial.print("failed, rc=");
@@ -204,6 +205,7 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   mySwitch.enableTransmit(GPIO_0);
+  mySwitch.setRepeatTransmit(TRANSMIT_RETRY);
   // OTA (only after connection is established)
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
@@ -293,14 +295,12 @@ void loop() {
          */
       if(cnt%2==0)
       {
-        Serial.println("On");
-        TelnetMsg("On");
+        logger("Toggle On",Debug);
         //mySwitch.switchOn("10101", "10000");
         //mySwitch.switchOn("10100", "10000");
         //digitalWrite(GPIO_D5, HIGH); 
       }else{
-        Serial.println("Off");
-        TelnetMsg("Off");
+        logger("Toggle Off",Debug);
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
         //digitalWrite(GPIO_D5, LOW);
@@ -396,6 +396,10 @@ void Telnet(){
 }
 
 void logger(String logInput,uint8_t level){
-  uint8_t logLevel = level;
-  Serial.println(logInput);
+  //uint8_t logLevel = level;
+  if(UsedLevel <= level){
+    Serial.println(logInput);
+    TelnetMsg(logInput);
+  }
+
 }
