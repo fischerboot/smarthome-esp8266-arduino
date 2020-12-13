@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20201213v0.12";
+const char* versionStr = "20201213v0.13";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -91,13 +91,14 @@ int bewegungsstatus=0;
 bool json_lookup_char ( const char* cSource, const char* cToken, char cReply[]){
   char *ptr;
   cReply[0]='\0'; // set null to 1st char in target
-  //Serial.print("\njson_lookup_char: ");
-  //Serial.println(cSource);
-  //Serial.print("Token >");
-  //Serial.print(cToken[0]);
+  logger("\njson_lookup_char:",Verbose);
+  logger(cSource,Verbose);
+  logger("Token >",Verbose);
+  logger(cToken[0],Verbose);
+  //logger("",Verbose);
   ptr = strstr (cSource, cToken); // set pointer to 1st char in cSource matching token
   if(!ptr){
-   logger(" json_lookup_char > ",Error);
+   logger("json_lookup_char > ",Error);
    logger(cToken[0],Error);
    logger("< not found\n\r",Error);
   return false;
@@ -105,7 +106,7 @@ bool json_lookup_char ( const char* cSource, const char* cToken, char cReply[]){
   logger("< ok",Verbose);
   logger("1 *ptr >",Verbose);
   logger(*ptr,Verbose);
-  logger("<\n",Verbose);
+  logger("<",Verbose);
   logger("Token >",Verbose);
   logger(":\n\r",Verbose);
   ptr = strstr (ptr, ":"); // set pointer to :
@@ -133,7 +134,7 @@ bool json_lookup_char ( const char* cSource, const char* cToken, char cReply[]){
   } // for
   logger(" result >",Verbose);
   logger(cReply,Verbose);
-  logger("<\n\r",Verbose);
+  logger("<",Verbose);
   return true;
 }
 // from https://hoeser-medien.de/2017/07/openhab-433-mhz-sender-mit-json-format-ueber-mqtt-anbinden/#codesyntax_4
@@ -156,7 +157,7 @@ void callback2(char* topic, byte* payload, unsigned int length) {
   }
   logger("]\n\r",Verbose);
   if(strcmp(topic,charMqttTopic_433_Cmnd)==0) { // whatever you want for this topic
-    logger("MQTT > 433 cmd received ...\n\r",Debug);
+    logger("MQTT > 433 cmd received :\n\r",Debug);
     // 10011 10000 für Steckdose A
     // JSON {code:"10011", device:"10000", state:1, count:1, delay:200}
     // MQTT Message arrived > [house/433/ardu1/cmnd], length: 71] {code:00001 , device:10000, state:1, count:3. delay:100 }
@@ -460,12 +461,12 @@ void loop() {
          */
       if(cnt%2==0)
       {
-        logger("Toggle On\n\r",Debug);
+        logger(".",Debug);
         //mySwitch.switchOn("10101", "10000");
         //mySwitch.switchOn("10100", "10000");
         //digitalWrite(GPIO_D5, HIGH); 
       }else{
-        logger("Toggle Off\n\r",Debug);
+        logger(" ",Debug);
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
         //digitalWrite(GPIO_D5, LOW);
