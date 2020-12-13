@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20201213v0.11";
+const char* versionStr = "20201213v0.12";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -99,7 +99,7 @@ bool json_lookup_char ( const char* cSource, const char* cToken, char cReply[]){
   if(!ptr){
    logger(" json_lookup_char > ",Error);
    logger(cToken[0],Error);
-   logger("< not found\n",Error);
+   logger("< not found\n\r",Error);
   return false;
   }
   logger("< ok",Verbose);
@@ -107,11 +107,11 @@ bool json_lookup_char ( const char* cSource, const char* cToken, char cReply[]){
   logger(*ptr,Verbose);
   logger("<\n",Verbose);
   logger("Token >",Verbose);
-  logger(":\n",Verbose);
+  logger(":\n\r",Verbose);
   ptr = strstr (ptr, ":"); // set pointer to :
   if(!ptr){
    logger(" json_lookup_char > ",Error);
-   logger(": not found\n",Error);
+   logger(": not found\n\r",Error);
   return false;
   }
   logger("< ok",Verbose);
@@ -133,7 +133,7 @@ bool json_lookup_char ( const char* cSource, const char* cToken, char cReply[]){
   } // for
   logger(" result >",Verbose);
   logger(cReply,Verbose);
-  logger("<\n",Verbose);
+  logger("<\n\r",Verbose);
   return true;
 }
 // from https://hoeser-medien.de/2017/07/openhab-433-mhz-sender-mit-json-format-ueber-mqtt-anbinden/#codesyntax_4
@@ -154,9 +154,9 @@ void callback2(char* topic, byte* payload, unsigned int length) {
     jsonData[i+1] = '\0';
     logger(payload[i],Verbose);
   }
-  logger("]\n",Verbose);
+  logger("]\n\r",Verbose);
   if(strcmp(topic,charMqttTopic_433_Cmnd)==0) { // whatever you want for this topic
-    logger("MQTT > 433 cmd received ...\n",Debug);
+    logger("MQTT > 433 cmd received ...\n\r",Debug);
     // 10011 10000 für Steckdose A
     // JSON {code:"10011", device:"10000", state:1, count:1, delay:200}
     // MQTT Message arrived > [house/433/ardu1/cmnd], length: 71] {code:00001 , device:10000, state:1, count:3. delay:100 }
@@ -211,7 +211,7 @@ void callback2(char* topic, byte* payload, unsigned int length) {
       client.publish(charMqttTopic_433_State,"invalid state");
       break;
     }
-    logger(" DONE\n",Info);
+    logger(" DONE\n\r",Info);
   } else {
     // Switch on the LED if an 1 was received as first character
     if ((char)payload[0] == '1') {
@@ -222,7 +222,7 @@ void callback2(char* topic, byte* payload, unsigned int length) {
       mySwitch.switchOn("10100", "10000");
       #else 
       mySwitch.switchOff("10100", "10000");
-      logger("RFC Off\n",Debug);
+      logger("RFC Off\n\r",Debug);
       //ESP.restart();
       #endif
     } else {
@@ -231,7 +231,7 @@ void callback2(char* topic, byte* payload, unsigned int length) {
       mySwitch.switchOn("10100", "10000");
       #else
       mySwitch.switchOn("10100", "10000");
-      logger("RFC On\n",Debug);
+      logger("RFC On\n\r",Debug);
       //ESP.restart();
       #endif
     }
@@ -257,7 +257,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     mySwitch.switchOn("10100", "10000");
     #else 
     mySwitch.switchOff("10100", "10000");
-    logger("RFC Off\n",Debug);
+    logger("RFC Off\n\r",Debug);
     //ESP.restart();
     #endif
   } else {
@@ -266,7 +266,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     mySwitch.switchOn("10100", "10000");
     #else
     mySwitch.switchOn("10100", "10000");
-    logger("RFC On\n",Debug);
+    logger("RFC On\n\r",Debug);
     //ESP.restart();
     #endif
   }
@@ -460,12 +460,12 @@ void loop() {
          */
       if(cnt%2==0)
       {
-        logger("Toggle On\n",Debug);
+        logger("Toggle On\n\r",Debug);
         //mySwitch.switchOn("10101", "10000");
         //mySwitch.switchOn("10100", "10000");
         //digitalWrite(GPIO_D5, HIGH); 
       }else{
-        logger("Toggle Off\n",Debug);
+        logger("Toggle Off\n\r",Debug);
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
         //digitalWrite(GPIO_D5, LOW);
