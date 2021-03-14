@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20201213v0.13";
+const char* versionStr = "20210314v0.6";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -10,12 +10,12 @@ const char* versionStr = "20201213v0.13";
 
 #define OTA_active
 //#define WifiManager_active
-#define MyESP01
+//#define MyESP01
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
 #include <RCSwitch.h>
 
-RCSwitch mySwitch = RCSwitch();   //https://github.com/sui77/rc-switch
+//RCSwitch mySwitch = RCSwitch();   //https://github.com/sui77/rc-switch
 #define TRANSMIT_RETRY (5)
 //needed for Telnet?
 //#include <ESP8266mDNS.h>
@@ -40,8 +40,8 @@ static LogLevel UsedLevel = Verbose;
 
 // MQTT Client
 #include <PubSubClient.h>
-const char* charMqttTopic_433_Cmnd = "house/433/ardu1/cmnd";
-const char* charMqttTopic_433_State = "house/433/ardu1/state";
+const char* charMqttTopic_LED_Cmnd = "home/light/test/cmnd";
+const char* charMqttTopic_LED_State = "home/light/test/state";
 
 static char jsonData[80];
 #define MAX_TOKEN_STRING 10
@@ -58,6 +58,14 @@ const int GPIO_D2 = 4;  // D2 on NodeMCU
 const int GPIO_D5 = 14; // D5 on NodeMCU
 const int GPIO_D6 = 12; // D6 on NodeMCU
 const int GPIO_D7 = 13; // D7 on NodeMCU
+const int GPIO_D8 = 15; // D8 on NodeMCU
+
+
+#define REDPIN GPIO_D7
+#define GREENPIN GPIO_D8
+#define BLUEPIN GPIO_D6
+// adjust the PWM range
+// see https://esp8266.github.io/Arduino/versions/2.0.0/doc/reference.html#analog-output
 
 #ifndef WifiManager_active
 #ifndef WlanConfig_h
@@ -71,6 +79,7 @@ const char* password = STAPSK;
 WiFiClient espClient;
 PubSubClient client(espClient);
 unsigned long cnt = 0; // 2 seconds
+unsigned int help = 0; // 2 seconds
 unsigned long lastMsg = 0;
 unsigned long lastTry = 0;
 #define MSG_BUFFER_SIZE  (50)
@@ -156,7 +165,7 @@ void callback2(char* topic, byte* payload, unsigned int length) {
     logger(payload[i],Verbose);
   }
   logger("]\n\r",Verbose);
-  if(strcmp(topic,charMqttTopic_433_Cmnd)==0) { // whatever you want for this topic
+  if(strcmp(topic,charMqttTopic_LED_Cmnd)==0) { // whatever you want for this topic
     logger("MQTT > 433 cmd received :\n\r",Debug);
     // 10011 10000 für Steckdose A
     // JSON {code:"10011", device:"10000", state:1, count:1, delay:200}
@@ -191,25 +200,23 @@ void callback2(char* topic, byte* payload, unsigned int length) {
     case 0:
       logger(" mySwitch.switchOff >",Debug);
       for (int i=0;i<iTokenCount;i++) {
-        mySwitch.switchOff(cTokenCode, cTokenDevice);
         logger("+",Debug);
         delay(iTokenDelay);
       }
-     client.publish(charMqttTopic_433_State,"0");
+     client.publish(charMqttTopic_LED_State,"0");
       break;
     case 1:
       logger(" mySwitch.switchOn >",Debug);
       for (int i=0;i<iTokenCount;i++) {
-        mySwitch.switchOn(cTokenCode, cTokenDevice);
         //mySwitch.switchOn("00001", "10000");
         logger("+",Debug);
         delay(iTokenDelay);
       }
-      client.publish(charMqttTopic_433_State,"1");
+      client.publish(charMqttTopic_LED_State,"1");
       break;
     default:
       logger(" Error >",Error);
-      client.publish(charMqttTopic_433_State,"invalid state");
+      client.publish(charMqttTopic_LED_State,"invalid state");
       break;
     }
     logger(" DONE\n\r",Info);
@@ -220,7 +227,9 @@ void callback2(char* topic, byte* payload, unsigned int length) {
       digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
       // but actually the LED is on; this is because
       // it is active low on the ESP-01)
-      mySwitch.switchOn("10100", "10000");
+      analogWrite(REDPIN, 0);
+      analogWrite(GREENPIN, 0);
+      analogWrite(BLUEPIN, 0);
       #else 
       mySwitch.switchOff("10100", "10000");
       logger("RFC Off\n\r",Debug);
@@ -229,7 +238,9 @@ void callback2(char* topic, byte* payload, unsigned int length) {
     } else {
       #ifndef MyESP01
       digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-      mySwitch.switchOn("10100", "10000");
+      analogWrite(REDPIN, 255);
+      analogWrite(GREENPIN, 255);
+      analogWrite(BLUEPIN, 255);
       #else
       mySwitch.switchOn("10100", "10000");
       logger("RFC On\n\r",Debug);
@@ -255,7 +266,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
     digitalWrite(PIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is active low on the ESP-01)
-    mySwitch.switchOn("10100", "10000");
+    analogWrite(REDPIN, 255);
+    analogWrite(GREENPIN, 255);
+    analogWrite(BLUEPIN, 255);
     #else 
     mySwitch.switchOff("10100", "10000");
     logger("RFC Off\n\r",Debug);
@@ -264,7 +277,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
   } else {
     #ifndef MyESP01
     digitalWrite(PIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-    mySwitch.switchOn("10100", "10000");
+    analogWrite(REDPIN, 0);
+    analogWrite(GREENPIN, 0);
+    analogWrite(BLUEPIN, 0);
     #else
     mySwitch.switchOn("10100", "10000");
     logger("RFC On\n\r",Debug);
@@ -284,13 +299,13 @@ void reconnect() {
     if (client.connect(clientId.c_str())) {
       logger("connected\n",Info);
       // Once connected, publish an announcement...
-      client.publish("RFC/outTopic", versionStr);
+      client.publish("LED/outTopic", versionStr);
       // ... and resubscribe
-      client.subscribe("RFC/inTopic");
+      client.subscribe("LED/inTopic");
       client.subscribe("test/switch");
-      client.subscribe(charMqttTopic_433_Cmnd); // house/433/ardu1/cmnd
+      client.subscribe(charMqttTopic_LED_Cmnd); // house/433/ardu1/cmnd
       logger("MQTT sub >",Info);
-      logger(charMqttTopic_433_Cmnd,Info);
+      logger(charMqttTopic_LED_Cmnd,Info);
       MQTTConnection = true;
     } else {
       logger("failed, rc=",Warning);
@@ -306,8 +321,8 @@ void setup() {
   // initialize the LED digital pin as an output.
   #ifndef MyESP01
   pinMode(PIN_LED, OUTPUT);
-  pinMode(GPIO_D5, OUTPUT);
-  pinMode(GPIO_D2, INPUT);
+  analogWriteRange(255);
+  resetOutputs();
   #endif
   Serial.begin(115200);
   Serial.print("\n Starting Version:");
@@ -369,15 +384,14 @@ void setup() {
   TelnetServer.setNoDelay(true);
 
   client.setServer(mqtt_server, 1883);
-  client.setCallback(callback2);
-  mySwitch.enableTransmit(GPIO_0);
-  mySwitch.setRepeatTransmit(TRANSMIT_RETRY);
+  client.setCallback(callback);
+  
   // OTA (only after connection is established)
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
 
   // Hostname defaults to esp8266-[ChipID]
-  ArduinoOTA.setHostname("myesp8266_RFC");
+  ArduinoOTA.setHostname("myesp8266_LED");
 
   // No authentication by default
   // ArduinoOTA.setPassword("admin");
@@ -470,6 +484,13 @@ void loop() {
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
         //digitalWrite(GPIO_D5, LOW);
+        help++;
+        analogWrite(REDPIN, 0);
+        analogWrite(GREENPIN, help);
+        analogWrite(BLUEPIN, 0);
+      }
+      if(help<255){
+        help = 0;
       }
     }
   }
@@ -598,4 +619,14 @@ void logger(const char* logInput,uint8_t level){
     Serial.print(logInput);
     TelnetMsg((char*)logInput);
   }
+}
+
+void resetOutputs() {
+  analogWrite(REDPIN, 255);
+  analogWrite(GREENPIN, 255);
+  analogWrite(BLUEPIN, 255);
+  
+  analogWrite(REDPIN, 0);
+  analogWrite(GREENPIN, 0);
+  analogWrite(BLUEPIN, 0);
 }
