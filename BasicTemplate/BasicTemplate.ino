@@ -1,7 +1,7 @@
 /*
 Configuration
 */
-const char* versionStr = "20210314v0.6";
+const char* versionStr = "20210314v0.8";
 #define LoggingWithTimeout
 
 #ifdef LoggingWithTimeout
@@ -28,6 +28,13 @@ enum LogLevel{
   Info      = 4
 };
 static LogLevel UsedLevel = Verbose; 
+/*
+void logger(char logInput,uint8_t level);
+void logger(unsigned int logInput,uint8_t level);
+void logger(const char* logInput,uint8_t level);
+void logger(char* logInput,uint8_t level);
+void logger(byte logInput,uint8_t level);
+void logger(int* logInput,uint8_t level);*/
 //needed for library
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
@@ -54,12 +61,28 @@ static char cTokenDelay [MAX_TOKEN_STRING];
 // Onboard LED I/O pin on NodeMCU board
 const int PIN_LED = 2;  // D4 on NodeMCU Controls the onboard LED.
 const int GPIO_0 = 2; // ESP-01 Pin
+const int GPIO_D0 = 16;  // D2 on NodeMCU
 const int GPIO_D2 = 4;  // D2 on NodeMCU
 const int GPIO_D5 = 14; // D5 on NodeMCU
 const int GPIO_D6 = 12; // D6 on NodeMCU
 const int GPIO_D7 = 13; // D7 on NodeMCU
 const int GPIO_D8 = 15; // D8 on NodeMCU
 
+//ultrasonic example
+int maximumRange = 300;
+int minimumRange = 2;
+long Abstand;
+long Dauer;
+void ultrasonicLoop();
+
+//from MK Smarthome
+int greenLedVal = 0;
+int redLedVal = 0;
+int blueLedVal = 0;
+
+enum Rainbow {REDD, ORANGE, YELOW, GREN, BLU, INDIGO, VIOLET};
+
+Rainbow currentRainbow = REDD;
 
 #define REDPIN GPIO_D7
 #define GREENPIN GPIO_D8
@@ -321,7 +344,9 @@ void setup() {
   // initialize the LED digital pin as an output.
   #ifndef MyESP01
   pinMode(PIN_LED, OUTPUT);
-  analogWriteRange(255);
+  pinMode(GPIO_D5, OUTPUT);
+  pinMode(GPIO_D0, INPUT);
+  analogWriteRange(1023);
   resetOutputs();
   #endif
   Serial.begin(115200);
@@ -473,6 +498,7 @@ void loop() {
            mySwitch.switchOff("10100", "10000");
          } //Programmabschnitt des else-Befehls schließen.
          */
+
       if(cnt%2==0)
       {
         logger(".",Debug);
@@ -484,14 +510,60 @@ void loop() {
         //mySwitch.switchOff("10101", "10000");
         //mySwitch.switchOff("10100", "10000");
         //digitalWrite(GPIO_D5, LOW);
-        help++;
-        analogWrite(REDPIN, 0);
-        analogWrite(GREENPIN, help);
-        analogWrite(BLUEPIN, 0);
       }
-      if(help<255){
-        help = 0;
-      }
+  }
+    if(now%500==0){
+      /*
+       switch(currentRainbow)
+        {
+          case REDD:
+            greenLedVal = 0;
+            redLedVal = 1023;
+            blueLedVal = 0;
+            currentRainbow = ORANGE;
+            break;
+          case ORANGE:
+            greenLedVal = 700;
+            redLedVal = 1023;
+            blueLedVal = 0;
+            currentRainbow = YELOW;
+            break;
+          case YELOW:
+            greenLedVal = 1023;
+            redLedVal = 1023;
+            blueLedVal = 0;
+            currentRainbow = GREN;
+            break; 
+          case GREN:
+            greenLedVal = 1023;
+            redLedVal = 0;
+            blueLedVal = 0;
+            currentRainbow = BLU;
+            break; 
+          case BLU:
+            greenLedVal = 0;
+            redLedVal = 0;
+            blueLedVal = 1023;
+            currentRainbow = INDIGO;
+            break; 
+          case INDIGO:
+            greenLedVal = 0;
+            redLedVal = 1023;
+            blueLedVal = 1023;
+            currentRainbow = VIOLET;
+            break; 
+          case VIOLET:
+            greenLedVal = 100;
+            redLedVal = 1023;
+            blueLedVal = 588;
+            currentRainbow = REDD;
+            break;
+        }
+        analogWrite(REDPIN, redLedVal);
+        analogWrite(GREENPIN, greenLedVal);
+        analogWrite(BLUEPIN, blueLedVal);
+      }*/
+      ultrasonicLoop();
     }
   }
 }
@@ -591,6 +663,50 @@ void Telnet(){
     }
   }
 }
+
+
+void resetOutputs() {
+  analogWrite(REDPIN, 1023);
+  analogWrite(GREENPIN, 1023);
+  analogWrite(BLUEPIN, 1023);
+  
+  analogWrite(REDPIN, 0);
+  analogWrite(GREENPIN, 0);
+  analogWrite(BLUEPIN, 0);
+}
+
+void ultrasonicLoop(){
+    // Abstandsmessung wird mittels des 10us langen Triggersignals gestartet
+  digitalWrite(GPIO_D5, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(GPIO_D5, LOW);
+  // Nun wird am Echo-Eingang gewartet, bis das Signal aktiviert wurde
+  // und danach die Zeit gemessen, wie lang es aktiviert bleibt
+  Dauer = pulseIn(GPIO_D0, HIGH);
+  // Nun wird der Abstand mittels der aufgenommenen Zeit berechnet
+  Abstand = Dauer/58.2;
+  // Überprüfung ob gemessener Wert innerhalb der zulässingen Entfernung liegt
+  if (Abstand >= maximumRange || Abstand <= minimumRange) {
+    // Falls nicht wird eine Fehlermeldung ausgegeben.
+    logger("Abstand ausserhalb des Messbereichs",Debug);
+    logger("-----------------------------------\n\r",Debug);
+    analogWrite(REDPIN, 1023);
+    analogWrite(GREENPIN, 1023);
+    analogWrite(BLUEPIN, 1023);
+  } else {
+    // Der berechnete Abstand wird in der seriellen Ausgabe ausgegeben
+    logger("Der Abstand betraegt:",Debug);
+    char cstr[16];
+    ltoa(Debug, cstr, 10);
+    logger(cstr,Debug);
+    logger("cm\n\r",Debug);
+    logger("-----------------------------------\n\r",Debug);
+    analogWrite(REDPIN, 0);
+    analogWrite(GREENPIN, 0);
+    analogWrite(BLUEPIN, 0);
+  }
+}
+
 /*
 void logger(String logInput,uint8_t level){
   //uint8_t logLevel = level;
@@ -620,13 +736,28 @@ void logger(const char* logInput,uint8_t level){
     TelnetMsg((char*)logInput);
   }
 }
-
-void resetOutputs() {
-  analogWrite(REDPIN, 255);
-  analogWrite(GREENPIN, 255);
-  analogWrite(BLUEPIN, 255);
-  
-  analogWrite(REDPIN, 0);
-  analogWrite(GREENPIN, 0);
-  analogWrite(BLUEPIN, 0);
+/*
+void logger(unsigned int logInput,uint8_t level){
+  //uint8_t logLevel = level;
+  if(UsedLevel <= level){
+    char cstr[16];
+    itoa(logInput, cstr, 10);
+    Serial.print(cstr);
+    TelnetMsg(cstr);
+  }
 }
+
+void logger(byte logInput,uint8_t level){
+    //uint8_t logLevel = level;
+  if(UsedLevel <= level){
+    Serial.print(logInput);
+    TelnetMsg((char*)logInput);
+  }
+}
+void logger(int* logInput,uint8_t level){
+    //uint8_t logLevel = level;
+  if(UsedLevel <= level){
+    Serial.print(logInput);
+    TelnetMsg((char*)logInput);
+  }
+}*/
